@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "walrus:init": "mkdir -p ~/.config/walrus && curl https://docs.wal.app/setup/client_config.yaml -o ~/.config/walrus/client_config.yaml && curl https://raw.githubusercontent.com/MystenLabs/walrus-sites/refs/heads/mainnet/sites-config.yaml -o ~/.config/walrus/sites-config.yaml",
+    "walrus:init:win": "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path $env:USERPROFILE\\.config\\walrus | Out-Null; Invoke-WebRequest -Uri https://docs.wal.app/setup/client_config.yaml -OutFile $env:USERPROFILE\\.config\\walrus\\client_config.yaml; Invoke-WebRequest -Uri https://raw.githubusercontent.com/MystenLabs/walrus-sites/refs/heads/mainnet/sites-config.yaml -OutFile $env:USERPROFILE\\.config\\walrus\\sites-config.yaml\"",
+    "deploy:walrus": "npm run build && site-builder --config ./sites-config.yaml deploy ./dist --epochs 10"
   },
   "dependencies": {
     "@mysten/dapp-kit": "^0.19.11",
