@@ -5,10 +5,10 @@ import {
   useCurrentAccount, 
   useWallets, 
   useConnectWallet, 
-  useDisconnectWallet 
+  useDisconnectWallet, 
+  useSuiClientContext
 } from '@mysten/dapp-kit';
 import { Loader2 } from 'lucide-react';
-import { isEnokiWallet } from '@mysten/enoki';
 import { trackEvent, trackError } from '../utils/analytics';
 
 interface WalletModalProps {
@@ -21,20 +21,20 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
   const wallets = useWallets();
   const { mutate: connect } = useConnectWallet();
   const { mutate: disconnect } = useDisconnectWallet();
+  const suiCtx = useSuiClientContext();
   
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
   const [justConnected, setJustConnected] = useState(false);
   const [copiedFull, setCopiedFull] = useState(false);
-  const [showZkLogin, setShowZkLogin] = useState(false);
+  
+  const filteredWallets = wallets.filter((w: any) => {
+    const isGoogle =
+      (w && typeof w.provider === 'string' && w.provider.toLowerCase() === 'google') ||
+      (w && typeof w.name === 'string' && /google/i.test(w.name));
+    const isRestrictedNetwork = suiCtx.network === 'testnet' || suiCtx.network === 'mainnet';
+    return !(isRestrictedNetwork && isGoogle);
+  });
 
-  // Separate Enoki wallets from regular wallets
-  const enokiWallets = wallets.filter(isEnokiWallet);
-  const regularWallets = wallets.filter((wallet) => !isEnokiWallet(wallet));
-
-  // Get specific social providers from Enoki wallets
-  const googleWallet = enokiWallets.find((wallet) => wallet.provider === 'google');
-  const facebookWallet = enokiWallets.find((wallet) => wallet.provider === 'facebook');
-  const twitchWallet = enokiWallets.find((wallet) => wallet.provider === 'twitch');
 
   const copyAddress = () => {
     if (!currentAccount) return;
@@ -61,39 +61,7 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
     }
   }, [currentAccount, connectingWallet]);
 
-  // Handle Enoki wallet connection
-  const handleEnokiConnect = async (wallet: any, providerName: string) => {
-    try {
-      setConnectingWallet(providerName);
-
-      // Store current page to redirect back after auth
-      sessionStorage.setItem('auth_redirect', window.location.pathname);
-
-      console.log(`Connecting to ${providerName}...`, wallet);
-      trackEvent('login_start', { provider: providerName });
-
-      connect(
-        { wallet },
-        {
-          onSuccess: () => {
-            console.log(`${providerName} connected successfully`);
-            trackEvent('login_success', { provider: providerName });
-          },
-          onError: (error) => {
-            console.error(`${providerName} connection error:`, error);
-            setConnectingWallet(null);
-            alert(`Failed to connect with ${providerName}: ${error.message || 'Unknown error'}`);
-            trackError('login_error', error, { provider: providerName });
-          },
-        }
-      );
-    } catch (error) {
-      console.error(`${providerName} connection error:`, error);
-      setConnectingWallet(null);
-      alert(`Failed to connect with ${providerName}`);
-      trackError('login_error', error, { provider: providerName });
-    }
-  };
+  // Removed social login handlers to keep WalletModal focused on extensions
 
   const handleRegularWalletConnect = (wallet: any) => {
     setConnectingWallet(wallet.name);
@@ -124,15 +92,15 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="glass rounded-2xl p-6 max-w-md w-full shadow-[0_0_20px_rgba(6,182,212,0.5)] max-h-[85vh] flex flex-col"
+        className="rounded-2xl p-6 max-w-md w-full bg-linear-to-b from-[#0b1e34] to-[#030712] border border-cyan-400/40 shadow-[0_0_30px_rgba(6,182,212,0.35)] hover:shadow-[0_0_60px_rgba(6,182,212,0.6)] transition-shadow max-h-[85vh] flex flex-col"
       >
         <div className="flex justify-between items-center mb-4 border-b border-secondary-light/30 pb-4 flex-shrink-0">
-          <h3 className="text-xl font-semibold text-secondary-light">
+          <h3 className="text-xl font-semibold text-cyan-400">
             {currentAccount ? 'Wallet Connected' : 'Connect Wallet'}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
@@ -142,7 +110,31 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        <div className="overflow-y-auto pr-1 custom-scrollbar flex-1 px-4">
+        <div className="overflow-y-auto pr-1 custom-scrollbar scrollbar-hide flex-1 px-4">
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-300">Network</span>
+              <span className="text-xs text-cyan-400 font-medium">{suiCtx.network}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {['testnet', 'mainnet', 'localnet'].map((n) => (
+                <motion.button
+                  key={n}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => suiCtx.selectNetwork(n as any)}
+                  className={`px-3 py-2 rounded-lg text-sm border ${
+                    suiCtx.network === n
+                      ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-white border-cyan-400/30'
+                      : 'bg-white/5 text-gray-300 hover:bg-white/10 border-white/10'
+                  }`}
+                >
+                  {n}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
           {currentAccount ? (
             <>
               <AnimatePresence>
@@ -213,121 +205,11 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
             </>
           ) : (
             <div className="px-3">
-              <p className="text-white mb-6 text-center">Select a wallet to connect to VeriLens</p>
+              <p className="text-white mb-6 text-center">Select a wallet to connect to Repeasy</p>
               
-              {/* zkLogin Section */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-300 flex items-center">
-                    <svg className="w-4 h-4 mr-2 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    Social Login (zkLogin)
-                  </h4>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowZkLogin(!showZkLogin)}
-                    className="text-primary hover:text-primary-light text-xs font-medium transition-colors flex items-center"
-                  >
-                    {showZkLogin ? 'Hide' : 'Show'}
-                    <svg 
-                      className={`w-4 h-4 ml-1 transition-transform ${showZkLogin ? 'rotate-180' : ''}`} 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </motion.button>
-                </div>
-                
-                <AnimatePresence>
-                  {showZkLogin && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="space-y-2 mb-4 overflow-hidden"
-                    >
-                      {/* Google Login */}
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleEnokiConnect(googleWallet, 'Google')}
-                        disabled={connectingWallet === 'Google' || !googleWallet}
-                        className="w-full bg-white hover:bg-gray-100 text-gray-800 px-4 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-wait"
-                      >
-                        {connectingWallet === 'Google' ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <svg className="w-5 h-5" viewBox="0 0 24 24">
-                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                            </svg>
-                            <span>Continue with Google</span>
-                          </>
-                        )}
-                      </motion.button>
+              {/* Extension wallets */}
 
-                      {/* Facebook Login */}
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleEnokiConnect(facebookWallet, 'Facebook')}
-                        disabled={connectingWallet === 'Facebook' || !facebookWallet}
-                        className="w-full bg-[#1877F2] hover:bg-[#166FE5] text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-wait"
-                      >
-                        {connectingWallet === 'Facebook' ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                            </svg>
-                            <span>Continue with Facebook</span>
-                          </>
-                        )}
-                      </motion.button>
-
-                      {/* Twitch Login */}
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleEnokiConnect(twitchWallet, 'Twitch')}
-                        disabled={connectingWallet === 'Twitch' || !twitchWallet}
-                        className="w-full bg-[#9146FF] hover:bg-[#7D3CE8] text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-wait"
-                      >
-                        {connectingWallet === 'Twitch' ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                              <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
-                            </svg>
-                            <span>Continue with Twitch</span>
-                          </>
-                        )}
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-600"></div>
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-darkblue px-2 text-gray-400">Or use wallet extension</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Regular Wallets */}
-              {regularWallets.length === 0 ? (
+              {filteredWallets.length === 0 ? (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -341,7 +223,7 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
                 </motion.div>
               ) : (
                 <AnimatePresence>
-                  {regularWallets.map((wallet, index) => {
+                  {filteredWallets.map((wallet, index) => {
                     const isThisWalletConnecting = connectingWallet === wallet.name;
                     
                     return (
@@ -353,7 +235,7 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
                         transition={{ duration: 0.3, delay: index * 0.05 }}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className={`w-full btn-primary mb-3 ${
+                        className={`w-full mb-3 px-4 py-3 rounded-lg bg-blue-500 text-white border border-blue-500/30 hover:bg-cyan-400 transition-colors flex items-center justify-center ${
                           isThisWalletConnecting 
                             ? 'opacity-80 cursor-wait' 
                             : ''
@@ -374,7 +256,7 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
                                 alt={`${wallet.name} icon`}
                                 width={20}
                                 height={20}
-                                className="mr-2 flex-shrink-0 rounded"
+                                className="mr-2 shrink-0 rounded"
                               />
                             ) : (
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
