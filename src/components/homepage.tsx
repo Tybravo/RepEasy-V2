@@ -114,7 +114,7 @@ export default function HomePage() {
             onClick={() => setIsUploadOpen(true)}
             className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-cyan-400 text-white border border-blue-500/30"
           >
-            Upload dApp Content
+            {/* Upload dApp Content */}
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -123,7 +123,7 @@ export default function HomePage() {
             disabled={!uploaded}
             className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white border border-green-500/30 disabled:opacity-50"
           >
-            Verify
+            {/* Verify */}
           </motion.button>
         </div>
       </section>

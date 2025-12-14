@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCurrentAccount } from '@mysten/dapp-kit';
@@ -109,7 +109,6 @@ export default function UploadContentModal({
         descriptionBlobId: result.descriptionBlobId,
       });
       onUploaded(result);
-      onClose();
     } catch (e: any) {
       const msg = e?.message || String(e);
       setError(msg);
@@ -233,7 +232,7 @@ export default function UploadContentModal({
             disabled={loading}
             className="flex-1 bg-blue-500 hover:bg-cyan-400 text-white px-4 py-2 rounded-lg border border-blue-500/30"
           >
-            {loading ? 'Uploading…' : 'Upload to Walrus'}
+            {loading ? 'Uploading…' : 'Verify dApp'}
           </motion.button>
           <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/10 text-gray-300">
             Cancel

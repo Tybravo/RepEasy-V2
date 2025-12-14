@@ -8,7 +8,7 @@ import CommunityModal from "./community-modal";
 import image from "../assets/Gemini_Generated_Image_x27hd3x27hd3x27h.png"
 import WalletModal from "./WalletModal";
 import UploadContentModal from "./UploadContentModal";
-import { useCurrentAccount, useDisconnectWallet, useAccounts, useSwitchAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount, useDisconnectWallet } from "@mysten/dapp-kit";
 
 interface NavbarProps {
   isLoggedIn?: boolean;
@@ -39,8 +39,6 @@ export default function Navbar({
   const { bookmarks, removeBookmark } = useBookmarksContext();
   const currentAccount = useCurrentAccount();
   const { mutate: disconnect } = useDisconnectWallet();
-  const accounts = useAccounts();
-  const { mutate: switchAccount } = useSwitchAccount();
   const [copiedAddr, setCopiedAddr] = useState(false);
 
   const bookmarksRef = useRef<HTMLDivElement>(null);
