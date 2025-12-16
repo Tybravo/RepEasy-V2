@@ -6,11 +6,23 @@ import ProjectCarousel from "./project-carousel";
 import ProjectModal from "./project-modal";
 import projects from "../data/giverep_projects.json";
 import image from "../assets/Gemini_Generated_Image_x27hd3x27hd3x27h.png"
+import UploadContentModal from "./UploadContentModal";
+import VerifyModal from "./VerifyModal";
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [filteredProjects, setFilteredProjects] = useState(projects);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
+  const [uploaded, setUploaded] = useState<null | {
+    name: string;
+    domainUrl: string;
+    twitterUsername: string;
+    bannerBlobId: string;
+    iconBlobId: string;
+    descriptionBlobId: string;
+  }>(null);
 
   useEffect(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -95,6 +107,25 @@ export default function HomePage() {
           projects={filteredProjects}
           onProjectClick={setSelectedProject}
         />
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsUploadOpen(true)}
+            className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-cyan-400 text-white border border-blue-500/30"
+          >
+            {/* Upload dApp Content */}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsVerifyOpen(true)}
+            disabled={!uploaded}
+            className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white border border-green-500/30 disabled:opacity-50"
+          >
+            {/* Verify */}
+          </motion.button>
+        </div>
       </section>
 
       <AnimatePresence>
@@ -105,6 +136,30 @@ export default function HomePage() {
           />
         )}
       </AnimatePresence>
+
+      {isUploadOpen && (
+        <UploadContentModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onUploaded={(res) => {
+            setUploaded(res);
+            setIsVerifyOpen(true);
+          }}
+        />
+      )}
+
+      {isVerifyOpen && uploaded && (
+        <VerifyModal
+          isOpen={isVerifyOpen}
+          onClose={() => setIsVerifyOpen(false)}
+          name={uploaded.name}
+          domainUrl={uploaded.domainUrl}
+          twitterUsername={uploaded.twitterUsername}
+          bannerBlobId={uploaded.bannerBlobId}
+          iconBlobId={uploaded.iconBlobId}
+          descriptionBlobId={uploaded.descriptionBlobId}
+        />
+      )}
 
       <footer className="text-center py-6 text-xs text-gray-500 border-t border-white/10">
         <h2 className="mb-4 text-center text-sm text-gray-800">S13</h2>

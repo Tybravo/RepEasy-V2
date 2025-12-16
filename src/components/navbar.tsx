@@ -1,11 +1,14 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Bookmark, LogIn,  BarChart3 } from "lucide-react";
+import { Menu, X, Bookmark, LogIn,  BarChart3, LogOut, ChevronDown, Copy, Check, Users, ShieldCheck } from "lucide-react";
 import AnalyticsModal from "./analytics-modal";
 import { useBookmarksContext, type BookmarkedTweet } from "../hooks/BookmarksContext";
 import BookmarkDetailModal from "./bookmarkDetailModal";
 import CommunityModal from "./community-modal";
 import image from "../assets/Gemini_Generated_Image_x27hd3x27hd3x27h.png"
+import WalletModal from "./WalletModal";
+import UploadContentModal from "./UploadContentModal";
+import { useCurrentAccount, useDisconnectWallet } from "@mysten/dapp-kit";
 
 interface NavbarProps {
   isLoggedIn?: boolean;
@@ -28,9 +31,15 @@ export default function Navbar({
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
 //   const { bookmarks, removeBookmark } = useBookmarks();
   const { bookmarks, removeBookmark } = useBookmarksContext();
+  const currentAccount = useCurrentAccount();
+  const { mutate: disconnect } = useDisconnectWallet();
+  const [copiedAddr, setCopiedAddr] = useState(false);
 
   const bookmarksRef = useRef<HTMLDivElement>(null);
 const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
@@ -91,6 +100,16 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
         onClose={() => setIsAnalyticsOpen(false)}
       />
 
+      <WalletModal
+        isOpen={isWalletOpen}
+        onClose={() => setIsWalletOpen(false)}
+      />
+      <UploadContentModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onUploaded={() => {}}
+      />
+
       {/* Community Modal */}
       <CommunityModal
         isOpen={isCommunityOpen}
@@ -132,7 +151,7 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
             </motion.a>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-3">
               {menuItems.map((item) => (
                 <motion.div key={item.label}>
                   {item.href === null ? (
@@ -142,7 +161,11 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
                       whileTap={{ scale: 0.95 }}
                       className="px-3 py-2 text-sm text-gray-300 hover:text-cyan-400 transition-colors flex items-center gap-1"
                     >
-                      <BarChart3 className="w-4 h-4" />
+                      {item.label === "Analytics" ? (
+                        <BarChart3 className="w-4 h-4" />
+                      ) : item.label === "Community" ? (
+                        <Users className="w-4 h-4" />
+                      ) : null}
                       {item.label}
                     </motion.button>
                   ) : (
@@ -155,6 +178,22 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
                   )}
                 </motion.div>
               ))}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (currentAccount) {
+                    setIsUploadOpen(true);
+                  } else {
+                    alert('Please connect your wallet to verify your dApp');
+                    setIsWalletOpen(true);
+                  }
+                }}
+                className="px-3 py-2 text-sm text-gray-300 hover:text-cyan-400 transition-colors flex items-center gap-1"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Verify dApp
+              </motion.button>
             </div>
 
             {/* Right Side - Analytics, Bookmarks, Auth */}
@@ -229,6 +268,96 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
                 </AnimatePresence>
               </div>
 
+              {/* Desktop Auth Button / Dropdown */}
+              <div className="hidden md:block relative">
+                {!currentAccount ? (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsWalletOpen(true)}
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-cyan-400/50 transition-shadow"
+                  >
+                    <span className="flex items-center gap-2">
+                      <LogIn className="w-4 h-4" />
+                      Sign In
+                    </span>
+                  </motion.button>
+                ) : (
+                  <div className="relative">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsAuthMenuOpen((v) => !v)}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-cyan-400/50 transition-shadow flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                      <ChevronDown className="w-4 h-4" />
+                    </motion.button>
+                    <AnimatePresence>
+                      {isAuthMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 8 }}
+                          className="absolute right-0 mt-2 w-96 bg-gradient-to-b from-[#0b1e34] to-[#020617] border border-cyan-400/30 rounded-lg shadow-2xl shadow-cyan-400/20 backdrop-blur-lg overflow-hidden"
+                        >
+                          <div className="px-4 py-3 border-b border-white/10">
+                            <p className="text-xs text-gray-400 mb-2">Wallet Address</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-mono text-cyan-300 break-all">
+                                {currentAccount?.address}
+                              </p>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => {
+                                  if (currentAccount?.address) {
+                                    navigator.clipboard.writeText(currentAccount.address);
+                                    setCopiedAddr(true);
+                                    setTimeout(() => setCopiedAddr(false), 1200);
+                                  }
+                                }}
+                                className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-colors"
+                              >
+                                <AnimatePresence mode="wait" initial={false}>
+                                  <motion.div
+                                    key={copiedAddr ? "check" : "copy"}
+                                    initial={{ opacity: 0, scale: 0.8, rotate: -45 }}
+                                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                                    exit={{ opacity: 0, scale: 0.8, rotate: 45 }}
+                                    transition={{ duration: 0.2 }}
+                                  >
+                                    {copiedAddr ? <Check className="w-4 h-4 text-cyan-400" /> : <Copy className="w-4 h-4" />}
+                                  </motion.div>
+                                </AnimatePresence>
+                              </motion.button>
+                            </div>
+                          </div>
+                          <div className="p-2">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => { setIsAuthMenuOpen(false); disconnect(); }}
+                              className="w-full px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors mb-2"
+                            >
+                              Disconnect
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => { setIsAuthMenuOpen(false); setIsWalletOpen(true); }}
+                              className="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 text-white text-sm font-medium hover:shadow-lg hover:shadow-cyan-400/50 transition-shadow"
+                            >
+                              Link Wallet
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
 
               {/* Mobile Menu Button */}
               <motion.button
@@ -266,7 +395,11 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
                           whileTap={{ scale: 0.98 }}
                           className="w-full text-left block px-4 py-2 rounded-lg text-gray-300 hover:bg-cyan-400/10 hover:text-cyan-400 transition-colors flex items-center gap-2"
                         >
-                          <BarChart3 className="w-4 h-4" />
+                          {item.label === "Analytics" ? (
+                            <BarChart3 className="w-4 h-4" />
+                          ) : item.label === "Community" ? (
+                            <Users className="w-4 h-4" />
+                          ) : null}
                           {item.label}
                         </motion.button>
                       ) : (
@@ -279,6 +412,22 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
                       )}
                     </motion.div>
                   ))}
+                  <motion.button
+                    onClick={() => {
+                      if (currentAccount) {
+                        setIsUploadOpen(true);
+                      } else {
+                        alert('Please connect your wallet to verify your dApp');
+                        setIsWalletOpen(true);
+                      }
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full text-left block px-4 py-2 rounded-lg text-gray-300 hover:bg-cyan-400/10 hover:text-cyan-400 transition-colors flex items-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Verify dApp
+                  </motion.button>
 
                   {/* Mobile Analytics */}
                   {isLoggedIn && (
@@ -313,6 +462,7 @@ const bookmarkBtnRef = useRef<HTMLButtonElement>(null);
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={() => setIsWalletOpen(true)}
                       className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-cyan-400/50 transition-shadow mt-4"
                     >
                       <span className="flex items-center justify-center gap-2">
